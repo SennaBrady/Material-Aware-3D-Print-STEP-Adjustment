@@ -1,0 +1,52 @@
+# Sample job: the locating fixture in PETG on a Bambu Lab printer.
+# Run:  matprint adjust samples/locating_fixture_job.yaml -o output
+part: locating_fixture.step
+material: PETG
+build_up_axis: +Z          # which model axis points up on the build plate
+printer: Bambu Lab
+profile: default
+
+print_settings:            # what you'd print with today; the advisor suggests changes
+  wall_loops: 2
+  line_width_mm: 0.42
+  infill_pct: 15
+  purpose: functional      # functional | decorative
+
+hard_requirements:         # alternatives must meet these; unknown values count as a miss
+  max_temp_c: 55
+  # chemicals:             # e.g. water: resistant   (levels: resistant | short | not)
+
+dimensions:
+  - name: Dowel hole left
+    type: hole
+    feature: H1
+    nominal: 8.0
+    tol: [0.0, 0.1]        # 8.00 +0.10/-0.00
+  - name: Dowel hole right
+    type: hole
+    feature: H2
+    nominal: 8.0
+    tol: [0.0, 0.1]
+  - name: Centre bore
+    type: hole
+    feature: H3
+    nominal: 12.0
+    tol: 0.1               # ±0.1
+  - name: Dowel spacing
+    type: position         # centre-to-centre distance: XY scale only
+    nominal: 60.0
+    tol: 0.1
+  - name: Locating boss
+    type: contour
+    feature: B1
+    nominal: 10.0
+    tol: 0.1
+  - name: Plate width
+    type: contour
+    feature: BBOX_X
+    nominal: 80.0
+    tol: 0.3
+  - name: Height
+    type: z
+    nominal: 20.0
+    tol: 0.2

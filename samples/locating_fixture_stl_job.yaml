@@ -1,0 +1,17 @@
+# STL input: XY scale only (R6). Holes are reported as uncorrected.
+part: locating_fixture.stl
+material: PLA
+build_up_axis: +Z
+dimensions:
+  - name: Dowel hole
+    type: hole
+    nominal: 8.0
+    tol: 0.05
+  - name: Plate width
+    type: contour
+    nominal: 80.0
+    tol: 0.2
+  - name: Height
+    type: z
+    nominal: 20.0
+    tol: 0.2
