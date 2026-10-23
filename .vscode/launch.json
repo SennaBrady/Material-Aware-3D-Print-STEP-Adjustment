@@ -2,6 +2,15 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Material-Aware Print app",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "matprint.app",
+      "args": ["--stay"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
       "name": "matprint: adjust sample (PETG)",
       "type": "debugpy",
       "request": "launch",

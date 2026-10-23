@@ -147,5 +147,59 @@ def effective_values(material: Material, record: Optional[CalibrationRecord]) ->
     return EffectiveValues(s, lo, hi, h, material.contour_offset_mm, s_src, spread_src, h_src)
 
 
+@dataclass
+class CouponOutcome:
+    s_pct: float
+    h_mm: Optional[float]
+    record: Optional[CalibrationRecord]  # None when a confirmation coupon passed and nothing was stored
+    confirmed: Optional[bool] = None  # set for confirmation (compensated) coupons
+    worst_error_mm: Optional[float] = None
+
+
+def record_coupon(
+    store: CalibrationStore,
+    material: str,
+    printer: str,
+    profile: str,
+    square_model: float,
+    square_measured: list[float],
+    hole_models: list[float],
+    holes_measured: list[float],
+    compensated: bool = False,
+    square_designed: Optional[float] = None,
+    holes_designed: Optional[list[float]] = None,
+    dried: Optional[bool] = None,
+    walls: Optional[int] = None,
+    infill: Optional[float] = None,
+    tolerance: float = 0.05,
+) -> CouponOutcome:
+    """Turn one coupon's measurements into s and h and store them.
+
+    A confirmation (compensated) coupon that lands within tolerance of the designed sizes
+    confirms the stored values and changes nothing; one that doesn't is stored as a new run.
+    """
+    if holes_measured and len(holes_measured) != len(hole_models):
+        raise ValueError(f"Expected {len(hole_models)} hole measurements, got {len(holes_measured)}")
+    s_pct, h = compute_run(square_model, square_measured, list(zip(hole_models, holes_measured)))
+    outcome = CouponOutcome(s_pct, h, None)
+    if compensated:
+        designed = square_designed if square_designed is not None else square_model
+        designed_holes = holes_designed or hole_models
+        errs = [m - designed for m in square_measured]
+        errs += [d - dd for d, dd in zip(holes_measured, designed_holes)]
+        outcome.worst_error_mm = max(abs(x) for x in errs)
+        outcome.confirmed = outcome.worst_error_mm <= tolerance
+        if outcome.confirmed:
+            return outcome
+    run = CalibrationRun(
+        date=today(), s_pct=round(s_pct, 4), h_mm=None if h is None else round(h, 4),
+        square_model_mm=square_model, square_measured_mm=list(square_measured),
+        holes=[{"model": m, "measured": d} for m, d in zip(hole_models, holes_measured)],
+        dried=dried, wall_loops=walls, infill_pct=infill, compensated=compensated,
+    )
+    outcome.record = store.add_run(material, printer, profile, run)
+    return outcome
+
+
 def today() -> str:
     return date.today().isoformat()

@@ -16,7 +16,7 @@ from .compensation import DimResult, evaluate
 from .geometry import input_kind
 from .job import Dimension, Job, PrintSettings
 from .materials import Material, MaterialDB
-from .settings_advisor import Suggestion, advise_settings
+from .settings_advisor import Suggestion, advise_settings, apply_suggestions
 
 
 class AdjustError(RuntimeError):
@@ -84,7 +84,8 @@ def _match_feature(dim: Dimension, features: list) -> tuple[Optional[str], Optio
 
 def evaluate_job(job: Job, db: MaterialDB, store: Optional[CalibrationStore], material_name: Optional[str] = None,
                  kind: str = "step", features: Optional[list] = None,
-                 part_size: Optional[tuple[float, float, float]] = None) -> RunResult:
+                 part_size: Optional[tuple[float, float, float]] = None,
+                 accepted: Optional[set[str]] = None) -> RunResult:
     """Everything except geometry: values, hold check, advisors."""
     material = db.get(material_name or job.material)
     record = store.get(material.name, job.printer, job.profile) if store else None
@@ -105,31 +106,69 @@ def evaluate_job(job: Job, db: MaterialDB, store: Optional[CalibrationStore], ma
             res.advisor = adv
     res.suggestions, res.final_settings = advise_settings(
         material, ev, job.print_settings, job.dimensions, part_size, record)
+    if accepted is not None:
+        res.final_settings = apply_suggestions(job.print_settings, res.suggestions, accepted)
     if ev.h_source == "none" and any(d.type == "hole" for d in job.dimensions):
         res.warnings.append(f"{material.name} has no hole offset yet; holes get the XY scale only until calibrated")
     return res
 
 
-def run(job: Job, db: MaterialDB, store: Optional[CalibrationStore], out_dir: Optional[Path] = None,
-        material_name: Optional[str] = None, write: bool = True) -> RunResult:
-    t0 = time.perf_counter()
-    if job.part is None:
-        raise AdjustError("The job file has no 'part:' entry")
-    part = Path(job.part)
+@dataclass
+class LoadedModel:
+    """A model read from disk and turned to print orientation, ready to check or compensate."""
+
+    path: Path
+    kind: str  # step | stl
+    up_axis: str
+    features: list
+    size: tuple[float, float, float]
+    step: object = None  # geometry.step_model.StepModel
+    mesh: object = None  # trimesh.Trimesh
+
+    def preview_mesh(self):
+        """Triangles of the oriented original, for display."""
+        if self.mesh is not None:
+            return self.mesh
+        import tempfile
+        import trimesh
+        from .geometry import step_model
+        with tempfile.TemporaryDirectory() as tmp:
+            stl = Path(tmp) / "preview.stl"
+            step_model.export_stl(self.step.shape, stl, tolerance=0.02, angular=0.1)
+            return trimesh.load(str(stl), force="mesh")
+
+
+def load_model(part: Path, up_axis: str = "+Z") -> LoadedModel:
+    part = Path(part)
     if not part.exists():
         raise AdjustError(f"Model not found: {part}")
     kind = input_kind(part)
-
     if kind == "step":
         from .geometry import step_model as geo
-        model = geo.analyse(geo.orient(geo.load_step(part), job.build_up_axis))
-        features, size = model.features, model.size
-    else:
-        from .geometry import mesh_model as geo
-        mesh = geo.orient(geo.load_stl(part), job.build_up_axis)
-        features, size = [], geo.size(mesh)
+        model = geo.analyse(geo.orient(geo.load_step(part), up_axis))
+        return LoadedModel(part, kind, up_axis, model.features, model.size, step=model)
+    from .geometry import mesh_model as geo
+    mesh = geo.orient(geo.load_stl(part), up_axis)
+    return LoadedModel(part, kind, up_axis, [], geo.size(mesh), mesh=mesh)
 
-    res = evaluate_job(job, db, store, material_name, kind, features, size)
+
+def run(job: Job, db: MaterialDB, store: Optional[CalibrationStore], out_dir: Optional[Path] = None,
+        material_name: Optional[str] = None, write: bool = True, loaded: Optional[LoadedModel] = None,
+        accepted: Optional[set[str]] = None, stem_name: Optional[str] = None) -> RunResult:
+    """Check and, with write=True, write the print files.
+
+    loaded: a model already read with load_model (skips reading it again).
+    accepted: rules (S1...) whose wall/infill suggestions to apply; None applies all of them.
+    stem_name: file name to base the outputs on, when the model was copied from elsewhere.
+    """
+    t0 = time.perf_counter()
+    if loaded is None:
+        if job.part is None:
+            raise AdjustError("The job file has no 'part:' entry")
+        loaded = load_model(job.part, job.build_up_axis)
+    part, kind = loaded.path, loaded.kind
+
+    res = evaluate_job(job, db, store, material_name, kind, loaded.features, loaded.size, accepted)
     if kind == "stl":
         res.warnings.append("STL input: XY scale only (R6). Holes are not corrected; use STEP for hole offsets.")
     if not write:
@@ -138,12 +177,13 @@ def run(job: Job, db: MaterialDB, store: Optional[CalibrationStore], out_dir: Op
 
     ev = res.ev
     if ev.k is None:
-        raise AdjustError(f"{res.material.name} has no shrinkage value. Print a calibration coupon "
-                          "(`matprint coupon`) and enter the measurements (`matprint calibrate`) first.")
+        raise AdjustError(f"{res.material.name} has no shrinkage value yet. Print a calibration coupon "
+                          "and enter its measurements first (Calibration tab, or `matprint coupon` and "
+                          "`matprint calibrate`).")
 
     out_dir = Path(out_dir) if out_dir else part.parent
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = output_stem(part, res.material)
+    stem = output_stem(Path(stem_name) if stem_name else part, res.material)
     paths = {
         "stl": out_dir / f"{stem}.stl",
         "3mf": out_dir / f"{stem}.3mf",
@@ -161,14 +201,16 @@ def run(job: Job, db: MaterialDB, store: Optional[CalibrationStore], out_dir: Op
     import trimesh
 
     if kind == "step":
+        from .geometry import step_model as geo
         h = ev.h_mm if ev.h_mm is not None else 0.0
-        shape, warns = geo.compensate(model, ev.k, h, ev.c_mm)
+        shape, warns = geo.compensate(loaded.step, ev.k, h, ev.c_mm)
         res.warnings += warns
         geo.export_step(shape, paths["step"])
         geo.export_stl(shape, paths["stl"])
         mesh = trimesh.load(str(paths["stl"]), force="mesh")
     else:
-        mesh = geo.scale_xy(mesh, ev.k)
+        from .geometry import mesh_model as geo
+        mesh = geo.scale_xy(loaded.mesh, ev.k)
         geo.export_stl(mesh, paths["stl"])
 
     final = res.final_settings

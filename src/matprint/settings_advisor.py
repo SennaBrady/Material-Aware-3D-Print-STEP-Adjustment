@@ -120,3 +120,16 @@ def advise_settings(
 
     final = PrintSettings(walls, settings.line_width_mm, infill, settings.purpose)
     return out, final
+
+
+def apply_suggestions(settings: PrintSettings, suggestions: list[Suggestion], accepted: set[str]) -> PrintSettings:
+    """Settings after accepting only the named rules' suggestions."""
+    walls, infill = settings.wall_loops, settings.infill_pct
+    for s in suggestions:
+        if s.rule not in accepted or s.value is None:
+            continue
+        if s.setting == "wall_loops":
+            walls = max(walls, int(s.value))
+        elif s.setting == "infill_pct":
+            infill = s.value
+    return PrintSettings(walls, settings.line_width_mm, infill, settings.purpose)

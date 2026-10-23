@@ -23,11 +23,15 @@ dev = ["pytest>=7.4"]
 [project.scripts]
 matprint = "matprint.cli:main"
 
+[project.gui-scripts]
+matprint-app = "matprint.app.server:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 "matprint.data" = ["*.yaml"]
+"matprint.app" = ["static/*", "static/vendor/three/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -10,7 +10,7 @@ import click
 import yaml
 
 from . import __version__
-from .calibration import CalibrationRun, CalibrationStore, compute_run, effective_values, today
+from .calibration import CalibrationStore, effective_values, record_coupon
 from .geometry import UnsupportedFormat, input_kind
 from .job import load_job
 from .materials import MaterialDB
@@ -40,6 +40,18 @@ def main(ctx, db, calibration):
     """Material-aware print compensation: write a print model that comes off the printer at size."""
     ctx.ensure_object(dict)
     ctx.obj.update(db=db, calibration=calibration)
+
+
+@main.command()
+@click.option("--port", default=8765, show_default=True)
+@click.option("--no-browser", is_flag=True, help="Don't open a browser window.")
+@click.option("--stay", is_flag=True, help="Keep running after the page is closed.")
+@click.pass_context
+def app(ctx, port, no_browser, stay):
+    """Open the point-and-click app in your browser."""
+    from .app.server import serve
+
+    serve(port, not no_browser, ctx.obj.get("db"), ctx.obj.get("calibration"), idle_exit=not stay)
 
 
 @main.command()
@@ -265,30 +277,23 @@ def calibrate(ctx, coupon_file, material, printer, profile, square_model, hole_m
         model_holes = _floats(hole_models or "")
         designed_holes = model_holes
     measured = _floats(holes_measured)
-    if measured and len(measured) != len(model_holes):
-        raise click.ClickException(f"Expected {len(model_holes)} hole measurements, got {len(measured)}")
-    s_pct, h = compute_run(sq_model, [square_x, square_y], list(zip(model_holes, measured)))
-    compensated = bool(meta.get("compensated"))
-    run_rec = CalibrationRun(
-        date=today(), s_pct=round(s_pct, 4), h_mm=None if h is None else round(h, 4),
-        square_model_mm=sq_model, square_measured_mm=[square_x, square_y],
-        holes=[{"model": m, "measured": d} for m, d in zip(model_holes, measured)],
-        dried=dried, wall_loops=walls, infill_pct=infill, compensated=compensated,
-    )
-    if compensated:
-        designed = meta["square_designed"]
-        errs = [square_x - designed, square_y - designed] + [d - dd for d, dd in zip(measured, designed_holes)]
-        worst = max(abs(x) for x in errs)
-        ok = worst <= tolerance
-        click.echo(f"Confirmation coupon: worst error {worst:.3f} mm against designed sizes "
-                   f"({'within' if ok else 'outside'} ±{tolerance:g} mm).")
-        if ok:
+    try:
+        out = record_coupon(
+            store, mat.name, printer, profile, sq_model, [square_x, square_y], model_holes, measured,
+            compensated=bool(meta.get("compensated")), square_designed=meta.get("square_designed"),
+            holes_designed=designed_holes, dried=dried, walls=walls, infill=infill, tolerance=tolerance)
+    except ValueError as exc:
+        raise click.ClickException(str(exc))
+    if out.confirmed is not None:
+        click.echo(f"Confirmation coupon: worst error {out.worst_error_mm:.3f} mm against designed sizes "
+                   f"({'within' if out.confirmed else 'outside'} ±{tolerance:g} mm).")
+        if out.confirmed:
             click.echo("Values confirmed. Nothing changed.")
             return
         click.echo("Still off, so this coupon is added as a new calibration run.")
-    rec = store.add_run(mat.name, printer, profile, run_rec)
-    click.echo(f"{mat.name} on {printer} / {profile}: this coupon s = {s_pct:.3f}%"
-               + (f", h = {h:+.3f} mm" if h is not None else ""))
+    rec = out.record
+    click.echo(f"{mat.name} on {printer} / {profile}: this coupon s = {out.s_pct:.3f}%"
+               + (f", h = {out.h_mm:+.3f} mm" if out.h_mm is not None else ""))
     click.echo(f"Stored {len(rec.runs)} run(s); using s = {rec.s_pct:.3f}%"
                + (f", h = {rec.h_mm:+.3f} mm" if rec.h_mm is not None else "")
                + (f", run-to-run range {rec.s_range[0]:.3f}–{rec.s_range[1]:.3f}%" if rec.s_range else

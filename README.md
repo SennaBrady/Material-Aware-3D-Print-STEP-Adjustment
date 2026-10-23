@@ -13,59 +13,72 @@ For each run it:
 
 The original model is only read, never written. Bambu Studio is supported first, and the rest of the design doesn't depend on any one slicer.
 
-## Install
+## Install (one time)
 
-You need Python 3.10 to 3.13. On Linux:
+You need the project folder on your computer: clone it with git, or download it from GitHub as a ZIP and unzip it.
+
+- **Linux:** double-click `install/install-linux.sh` and choose **Run**. You can also run it once from a terminal. It needs no sudo. When it finishes, **Material-Aware Print** is in your app menu and on your desktop.
+- **Windows:** double-click `install\install-windows.bat`. When it finishes, **Material-Aware Print** is in the Start menu and on your desktop. This script hasn't been tested on Windows yet.
+
+The installer sets up a private Python 3.12 for the app, using [uv](https://docs.astral.sh/uv/) if your system Python is too new, and leaves the system Python alone. The first install downloads about 300 MB, most of it the OpenCascade CAD kernel.
+
+## Using the app
+
+Open **Material-Aware Print**. It opens in your web browser, but everything runs on your own computer and nothing is uploaded anywhere. The app quits a couple of minutes after you close its tab.
+
+1. **Open a part.** Click **Open a part model…** and pick a STEP or STL file, or drag the file onto the window. A 3D preview appears.
+2. **Choose the material.** The line under the list shows the shrinkage and hole offset in use, and whether they come from your own calibration or the typical-value table.
+3. **Check the critical dimensions.** The app finds the holes, pockets, bosses and overall sizes and lists them. Tick the ones that matter, set their tolerances, and add any others, such as dowel spacing. Click a row to highlight that feature on the model. Each row shows the size the print model will have, and whether the material can hold the tolerance.
+4. **If a tolerance can't be held,** the app lists up to three materials that can, with what you gain or lose with each. Click **Use…** to switch. Under **Requirements a replacement material must meet** you can require a maximum temperature or chemical resistance.
+5. **Walls and infill.** Enter what you normally print with. The app suggests changes, each with its reason. Untick any you don't want.
+6. **Create the print files.** Choose to save them next to the original part or in a folder. You get a compensated STEP, an STL, a 3MF for Bambu Studio, a slicer settings list and a one-page report. Switch the preview to **Print model** to see the result.
+
+If the part sits differently on the build plate, change **Up on the build plate**. Only X and Y are compensated, so the build direction matters.
+
+The **Calibrate** tab makes a test coupon, takes your caliper measurements and stores the shrinkage and hole offset measured on your printer. The **Materials** tab lists the database.
+
+## Developer setup
+
+You need Python 3.10 to 3.13.
 
 ```bash
-cd Material-Aware-3D-Print-STEP-Adjustment
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt -e .
-matprint --help
+matprint app                       # the app
+matprint --help                    # the command line
 ```
 
-On Windows, activate the environment with `.venv\Scripts\activate` instead. CadQuery brings its own OpenCascade CAD kernel, so the first install downloads about 300 MB.
-
-If your system Python is newer than 3.13, as on rolling distributions such as Arch or CachyOS, use [uv](https://docs.astral.sh/uv/) to get a supported version without touching the system install:
+If your system Python is newer than 3.13, as on Arch or CachyOS, create the environment with uv instead:
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh     # installs to ~/.local/bin, no sudo
+curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -r requirements-dev.txt -e .
 ```
 
-### VS Code
+**VS Code.** Open the folder, accept the recommended Python extension and pick `.venv` as the interpreter. Run and Debug has launch configurations for the app and the samples, and the Testing panel runs pytest.
 
-Open the folder, accept the recommended Python extension, and pick `.venv` as the interpreter. Run and Debug has three ready-made launch configurations, and the Testing panel runs the pytest suite.
+**PyCharm.** Open the folder, set the interpreter to `.venv` and mark `src` as a Sources Root. For a run configuration, set **Module name** to `matprint` with the parameter `app`.
 
-### PyCharm
+## Command line
 
-Open the folder, set the project interpreter to `.venv`, and mark `src` as a Sources Root. To run the tool, create a Python run configuration with **Module name** `matprint` and parameters such as `adjust samples/locating_fixture_job.yaml -o output`. Right-click `tests` and choose **Run pytest** to run the tests.
-
-## Quick start
+Everything the app does is also available as commands, which is useful for batches and scripts:
 
 ```bash
-# 1. See what the tool finds in your model (in print orientation)
-matprint features samples/locating_fixture.step
-
-# 2. Write a starter job file listing every detected feature, then edit the tolerances
-matprint init my_part.step -m PETG --up +Z
-
-# 3. Check, then write the print model
-matprint check my_part_job.yaml
-matprint adjust my_part_job.yaml -o output
+matprint features samples/locating_fixture.step           # what the tool finds in a model
+matprint init my_part.step -m PETG --up +Z                # write a starter job file, then edit tolerances
+matprint check my_part_job.yaml                           # hold check and advice only
+matprint adjust my_part_job.yaml -o output                # write the print files
 ```
 
-Try it on the samples:
+The samples:
 
 ```bash
 matprint adjust samples/locating_fixture_job.yaml -o output       # PETG: fails dowel spacing, suggests ASA / PC
 matprint check  samples/locating_fixture_pa6_job.yaml             # PA6: 50 mm ±0.1 can't be held
 matprint adjust samples/locating_fixture_stl_job.yaml -o output   # STL: XY scale only, holes flagged
 ```
-
-When a dimension fails and you run `adjust` in a terminal, the tool offers the alternatives, re-checks with the one you pick, and repeats until you keep a material.
 
 ## The job file
 
@@ -118,7 +131,9 @@ On STEP input the offsets are applied to the exact B-rep first, by h/k and c/k, 
 
 The hold check calculates spread = L × (s_max − s_min) and compares it with the tolerance band T. A dimension holds when spread ≤ T. Once a material has two or more calibration coupons, their measured run-to-run range replaces the table's.
 
-## Calibration
+## Calibration from the command line
+
+The app's Calibrate tab does the same thing.
 
 ```bash
 matprint coupon -m PLA                       # writes coupon_PLA.step/.stl/.json (20 mm square, Ø4/6/8 holes)
@@ -185,6 +200,7 @@ python samples/make_samples.py  # rebuild the sample models
 
 ```
 src/matprint/
+  app/                 the point-and-click app: server.py (local HTTP API), static/ (page, 3D viewer)
   cli.py               commands
   pipeline.py          load → classify → look up values → check → compensate → advise → write
   geometry/            step_model.py (B-rep features, offsets, XY scale), mesh_model.py (STL)
