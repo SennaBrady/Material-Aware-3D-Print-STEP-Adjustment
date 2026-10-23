@@ -27,6 +27,14 @@ matprint --help
 
 On Windows, activate the environment with `.venv\Scripts\activate` instead. CadQuery brings its own OpenCascade CAD kernel, so the first install downloads about 300 MB.
 
+If your system Python is newer than 3.13, as on rolling distributions such as Arch or CachyOS, use [uv](https://docs.astral.sh/uv/) to get a supported version without touching the system install:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh     # installs to ~/.local/bin, no sudo
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements-dev.txt -e .
+```
+
 ### VS Code
 
 Open the folder, accept the recommended Python extension, and pick `.venv` as the interpreter. Run and Debug has three ready-made launch configurations, and the Testing panel runs the pytest suite.
