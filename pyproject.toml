@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matprint"
+version = "0.1.0"
+description = "Material-aware 3D print compensation: writes a print model that comes off the printer at size"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+dependencies = [
+    "cadquery>=2.4",
+    "trimesh>=4.0",
+    "numpy>=1.24",
+    "PyYAML>=6.0",
+    "click>=8.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+matprint = "matprint.cli:main"
+
+[project.gui-scripts]
+matprint-app = "matprint.app.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"matprint.data" = ["*.yaml"]
+"matprint.app" = ["static/*", "static/vendor/three/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

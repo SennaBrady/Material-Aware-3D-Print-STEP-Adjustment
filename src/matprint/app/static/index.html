@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material-Aware Print</title>
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+<script type="importmap">
+{ "imports": { "three": "/static/vendor/three/three.module.min.js" } }
+</script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><img src="/static/icon.svg" alt="" width="26" height="26"><span>Material-Aware Print</span></div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="adjust" role="tab">Adjust a part</button>
+    <button class="tab" data-tab="cal" role="tab">Calibrate</button>
+    <button class="tab" data-tab="mat" role="tab">Materials</button>
+  </nav>
+  <div class="version" id="version"></div>
+</header>
+
+<main>
+<!-- ================= ADJUST ================= -->
+<section id="tab-adjust" class="tabpage">
+  <div id="empty" class="empty">
+    <div class="drop" id="drop">
+      <svg viewBox="0 0 48 48" width="56" height="56" aria-hidden="true"><path d="M24 4 6 14v20l18 10 18-10V14L24 4Zm0 4.6L37.6 16 24 23.4 10.4 16 24 8.6ZM10 19.4l12 6.6v13.4L10 32.8V19.4Zm16 20V26l12-6.6v13.4l-12 6.6Z" fill="currentColor"/></svg>
+      <h1>Open a part to adjust for printing</h1>
+      <p>STEP (.step, .stp) gives the full correction, including holes. STL can only be scaled.</p>
+      <button class="btn primary big" id="open-btn">Open a part model…</button>
+      <p class="muted small">or drag a file onto this window</p>
+      <input type="file" id="file-input" accept=".step,.stp,.stl,.sldprt" hidden>
+    </div>
+    <div class="note">
+      <b>SolidWorks part (.sldprt)?</b> In SolidWorks choose <i>File › Save As › STEP AP214</i>, then open the .step file here.
+      Your original part and its drawing are never changed. The tool always writes new files.
+    </div>
+    <div id="empty-error" class="alert bad" hidden></div>
+  </div>
+
+  <div id="work" class="work" hidden>
+    <div class="viewer-col">
+      <div class="viewer-bar">
+        <div class="file"><span id="file-name"></span> <span class="badge" id="file-kind"></span></div>
+        <label class="inline">Up on the build plate
+          <select id="up-axis">
+            <option value="+Z">+Z (as modelled)</option><option value="-Z">−Z</option>
+            <option value="+Y">+Y</option><option value="-Y">−Y</option>
+            <option value="+X">+X</option><option value="-X">−X</option>
+          </select>
+        </label>
+        <div class="seg" id="view-toggle">
+          <button class="active" data-view="original">Original</button>
+          <button data-view="print" disabled title="Create the print files first">Print model</button>
+        </div>
+        <button class="btn" id="open-another">Open another…</button>
+      </div>
+      <div id="viewer" class="viewer"><div class="viewer-hint">Drag to rotate · scroll to zoom · right-drag to pan</div></div>
+      <div id="model-warnings"></div>
+    </div>
+
+    <div class="panel-col">
+      <div class="card">
+        <h2><span class="step">1</span> Material</h2>
+        <div class="row">
+          <select id="material" class="grow"></select>
+          <details class="printer"><summary>Printer</summary>
+            <label>Printer <input id="printer" value="Bambu Lab"></label>
+            <label>Profile <input id="profile" value="default"></label>
+            <p class="muted small">Calibration is stored for each material, printer and profile.</p>
+          </details>
+        </div>
+        <div id="material-info" class="muted small"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="step">2</span> Critical dimensions</h2>
+        <p class="muted small">Tick the dimensions that matter and set their tolerances. Click a row to see it on the model.</p>
+        <div class="table-wrap">
+          <table class="dims">
+            <thead><tr><th></th><th>Dimension</th><th>Type</th><th class="num">Nominal</th><th class="num">− tol</th><th class="num">+ tol</th><th class="num">Print model</th><th>Holds?</th><th></th></tr></thead>
+            <tbody id="dims-body"></tbody>
+          </table>
+        </div>
+        <button class="btn small" id="add-dim">+ Add a dimension</button>
+        <p class="muted small typehelp"><b>Hole</b> bore or pocket · <b>Outside</b> outer edge or boss · <b>Spacing</b> centre-to-centre distance · <b>Height</b> along the build direction, never compensated</p>
+      </div>
+
+      <div class="card" id="result-card">
+        <h2><span class="step">3</span> Can the material hold these tolerances?</h2>
+        <div id="verdict"></div>
+        <div id="alternatives"></div>
+        <details class="req">
+          <summary>Requirements a replacement material must meet</summary>
+          <div class="grid2">
+            <label>Max use temperature (°C) <input id="max-temp" type="number" min="0" step="5" placeholder="none"></label>
+            <span></span>
+            <label>Acids <select class="chem" data-chem="acids"></select></label>
+            <label>Bases <select class="chem" data-chem="bases"></select></label>
+            <label>Water <select class="chem" data-chem="water"></select></label>
+            <label>Solvents <select class="chem" data-chem="solvents"></select></label>
+          </div>
+          <p class="muted small">Materials without data for a requirement are left out, to be safe.</p>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2><span class="step">4</span> Walls and infill</h2>
+        <div class="grid4">
+          <label>Walls <input id="walls" type="number" min="1" max="20" value="2"></label>
+          <label>Infill % <input id="infill" type="number" min="0" max="100" value="15"></label>
+          <label>Line width mm <input id="line-width" type="number" min="0.1" max="2" step="0.01" value="0.42"></label>
+          <label>Part use <select id="purpose"><option value="functional">Functional</option><option value="decorative">Decorative</option></select></label>
+        </div>
+        <div id="suggestions"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="step">5</span> Create the print files</h2>
+        <div class="save">
+          <label class="radio"><input type="radio" name="save" value="next_to_original"> Next to the original part</label>
+          <label class="radio"><input type="radio" name="save" value="folder"> In this folder:</label>
+          <div class="row"><input id="out-dir" class="grow"><button class="btn small" id="pick-folder">Choose…</button></div>
+        </div>
+        <button class="btn primary big wide" id="build-btn">Create print files</button>
+        <div id="build-result"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CALIBRATE ================= -->
+<section id="tab-cal" class="tabpage" hidden>
+  <div class="cal-intro">
+    <h1>Calibrate a material on your printer</h1>
+    <p class="muted">The built-in values are typical figures. A test coupon measured with calipers gives the shrinkage and hole offset of <i>your</i> printer and filament, and replaces them.</p>
+  </div>
+  <div class="cal-grid">
+    <div class="card">
+      <h2><span class="step">1</span> Make a test coupon</h2>
+      <label>Material <select id="cal-material"></select></label>
+      <div class="grid2">
+        <label>Square size (mm) <input id="cal-square" type="number" value="20" min="10" step="1"></label>
+        <label>Hole sizes (mm) <input id="cal-holes" value="4, 6, 8"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="cal-confirm"> Confirmation print, pre-corrected with the current calibration</label>
+      <button class="btn primary" id="coupon-btn">Create coupon</button>
+      <div id="coupon-result"></div>
+      <ol class="muted small howto">
+        <li>Print it with all slicer compensation off: Shrinkage 100%, X-Y hole and contour compensation 0, auto circle compensation off.</li>
+        <li>Let it cool completely.</li>
+        <li>Measure the square across X and across Y, and each hole, with calipers.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2><span class="step">2</span> Enter your measurements</h2>
+      <label>Coupon <select id="cal-coupon"></select></label>
+      <div class="grid2">
+        <label>Square, X (mm) <input id="m-sqx" type="number" step="0.01"></label>
+        <label>Square, Y (mm) <input id="m-sqy" type="number" step="0.01"></label>
+      </div>
+      <div id="m-holes" class="grid3"></div>
+      <div class="grid3">
+        <label>Filament dried? <select id="m-dried"><option value="">Not sure</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+        <label>Walls printed <input id="m-walls" type="number" value="2" min="1"></label>
+        <label>Infill % printed <input id="m-infill" type="number" value="15" min="0" max="100"></label>
+      </div>
+      <button class="btn primary" id="calibrate-btn">Save calibration</button>
+      <div id="calibrate-result"></div>
+    </div>
+    <div class="card wide-card">
+      <h2>Saved calibrations</h2>
+      <div id="cal-list"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MATERIALS ================= -->
+<section id="tab-mat" class="tabpage" hidden>
+  <h1>Materials</h1>
+  <p class="muted">Blank means the sources gave no value. Materials marked “needs calibration” can't be adjusted until you calibrate them.</p>
+  <div class="table-wrap"><table class="mats" id="mat-table"></table></div>
+</section>
+</main>
+
+<div id="busy" class="busy" hidden><div class="spinner"></div><span id="busy-text">Working…</span></div>
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Material-Aware Print app",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "matprint.app",
+      "args": ["--stay"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "matprint: adjust sample (PETG)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "matprint",
+      "args": ["adjust", "samples/locating_fixture_job.yaml", "-o", "output", "--no-prompt"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "matprint: check sample (PA6, fails -> alternatives)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "matprint",
+      "args": ["check", "samples/locating_fixture_pa6_job.yaml"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "matprint: adjust a job file...",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "matprint",
+      "args": ["adjust", "${input:jobFile}", "-o", "output"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {"id": "jobFile", "type": "promptString", "description": "Job file", "default": "samples/locating_fixture_job.yaml"}
+  ]
+}

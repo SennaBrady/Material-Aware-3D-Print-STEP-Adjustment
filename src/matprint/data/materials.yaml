@@ -1,0 +1,323 @@
+# Material database for matprint.
+#
+# Units: shrinkage in percent (linear, XY), offsets and sizes in mm,
+# temperatures in degC, strength in MPa / GPa / %, resistivity in ohm*cm.
+#
+# Seeded from the project overview's property tables. A value of null means
+# "not given by the sources" -- the tool treats it as unknown and never guesses.
+# Where sources disagree, every figure is kept with its source and the advisor
+# uses the more conservative one (e.g. the lowest max use temperature).
+#
+# Chemical resistance levels: resistant | short | not | unknown
+#   short = short exposure only.
+#
+# Sources (short keys used below):
+#   grandpacad  GrandpaCAD material shrinkage calculator (shrinkage table)
+#   bambu       Bambu Studio X-Y hole compensation starting values
+#   create      CREATE Education whitepaper, Properties of 3D printing filaments (2024)
+#   xometry     Xometry, 3D printing materials
+#   sourcecad   SourceCAD material properties cheat sheet (min wall, infill)
+#   protopasta  Proto-Pasta conductive PLA datasheet figure, via the overview
+#   stopforth   Stopforth 2021, Conductive PLA filaments for 3D printed sensors
+
+materials:
+  - name: PLA
+    base: PLA
+    filler: null
+    shrinkage: {typical: 0.3, min: 0.2, max: 0.5, source: grandpacad}
+    hole_offset_mm: 0.05
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 40, source: create}
+      - {value: 60, source: xometry}
+    chemical: {acids: unknown, bases: not, water: unknown, solvents: not}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 0.8
+    infill_pct: {functional: [40, 100], decorative: [15, 25]}
+    notes: "stiff but brittle, low impact"
+    sources: [grandpacad, bambu, create, xometry, sourcecad]
+
+  - name: PETG
+    base: PETG
+    filler: null
+    shrinkage: {typical: 0.4, min: 0.2, max: 1.0, source: grandpacad}
+    hole_offset_mm: 0.10
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 60, source: create}
+      - {value: 80, source: xometry}
+    chemical: {acids: short, bases: not, water: resistant, solvents: short}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: 23
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [20, 40]}
+    notes: "good layer adhesion"
+    sources: [grandpacad, bambu, create, xometry, sourcecad]
+
+  - name: PETG-CF
+    base: PETG
+    filler: carbon fibre
+    shrinkage: {typical: null, min: null, max: null, source: "needs calibration"}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c: []
+    chemical: {acids: unknown, bases: unknown, water: unknown, solvents: unknown}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [20, 40]}
+    notes: "fibre-filled PETG; no property data yet, calibrate before use"
+    sources: []
+
+  - name: ASA
+    base: ASA
+    filler: null
+    shrinkage: {typical: 0.5, min: 0.4, max: 0.7, source: grandpacad}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    # Only a glass transition (~105 C) is given; Tg is an upper bound on use temperature.
+    max_use_temp_c:
+      - {value: 105, source: "create (Tg)"}
+    chemical: {acids: unknown, bases: unknown, water: unknown, solvents: unknown}
+    uv_resistant: true
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [20, 50]}
+    notes: "resists environmental stress cracking, strong UV resistance, similar to ABS"
+    sources: [grandpacad, create, sourcecad]
+
+  - name: HIPS
+    base: HIPS
+    filler: null
+    shrinkage: {typical: 0.5, min: 0.2, max: 0.8, source: grandpacad}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c: []
+    chemical: {acids: unknown, bases: unknown, water: unknown, solvents: unknown}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: null
+    infill_pct: null
+    notes: ""
+    sources: [grandpacad]
+
+  - name: PC
+    base: PC
+    filler: null
+    shrinkage: {typical: 0.6, min: 0.5, max: 0.8, source: grandpacad}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 150, source: "create (Tg)"}
+    chemical: {acids: unknown, bases: unknown, water: unknown, solvents: unknown}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: null
+    infill_pct: null
+    notes: "durable under high stress"
+    sources: [grandpacad, create]
+
+  - name: ABS
+    base: ABS
+    filler: null
+    shrinkage: {typical: 0.8, min: 0.7, max: 1.6, source: grandpacad}
+    hole_offset_mm: 0.10
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 90, source: create}
+    chemical: {acids: not, bases: unknown, water: short, solvents: not}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [20, 50]}
+    notes: "notched impact 32 kJ/m2; poor in long-term water"
+    sources: [grandpacad, bambu, create, sourcecad]
+
+  - name: TPU 95A
+    base: TPU
+    filler: null
+    shrinkage: {typical: 0.8, min: 0.4, max: 1.4, source: grandpacad}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c: []
+    chemical: {acids: unknown, bases: unknown, water: unknown, solvents: unknown}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [10, 40]}
+    notes: "flexible"
+    sources: [grandpacad, sourcecad]
+
+  - name: TPU 98A
+    base: TPU
+    filler: null
+    shrinkage: {typical: null, min: null, max: null, source: "needs calibration"}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 50, source: create}
+    chemical: {acids: unknown, bases: unknown, water: short, solvents: unknown}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: 350
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [10, 40]}
+    notes: "flexible, stretches up to 4.5x, resists oils"
+    sources: [create, sourcecad]
+
+  - name: Nylon PA12
+    base: PA
+    filler: null
+    shrinkage: {typical: 1.4, min: 0.7, max: 2.0, source: grandpacad}
+    hole_offset_mm: 0.15
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 100, source: "create (PA)"}
+    chemical: {acids: unknown, bases: short, water: short, solvents: short}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: 143
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [25, 50]}
+    notes: "tough; absorbs moisture, dry before printing"
+    sources: [grandpacad, bambu, create, sourcecad]
+
+  - name: Nylon PA6
+    base: PA
+    filler: null
+    shrinkage: {typical: 1.5, min: 0.7, max: 3.0, source: grandpacad}
+    hole_offset_mm: 0.15
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 100, source: "create (PA)"}
+    chemical: {acids: unknown, bases: short, water: short, solvents: short}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: 143
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [25, 50]}
+    notes: "tough; absorbs moisture, dry before printing"
+    sources: [grandpacad, bambu, create, sourcecad]
+
+  - name: PAHT CF15
+    base: PA
+    filler: carbon fibre 15%
+    shrinkage: {typical: null, min: null, max: null, source: "needs calibration"}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 130, source: create}
+    chemical: {acids: unknown, bases: short, water: short, solvents: short}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: 5.1
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: 1.2
+    infill_pct: {functional: [25, 50]}
+    notes: "weaker under sudden impact"
+    sources: [create, sourcecad]
+
+  - name: PP
+    base: PP
+    filler: null
+    shrinkage: {typical: 1.5, min: 1.0, max: 3.0, source: grandpacad}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 100, source: "create (short term)"}
+    chemical: {acids: resistant, bases: resistant, water: resistant, solvents: resistant}
+    uv_resistant: null
+    tensile_mpa: 25   # source says "under 25 MPa"; treated as an upper bound
+    modulus_gpa: null
+    elongation_pct: 200
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: null
+    infill_pct: null
+    notes: "under 25 MPa tensile"
+    sources: [grandpacad, create]
+
+  - name: PP GF30
+    base: PP
+    filler: glass fibre 30%
+    shrinkage: {typical: null, min: null, max: null, source: "needs calibration"}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c:
+      - {value: 100, source: "create (above 100 C)"}
+    chemical: {acids: resistant, bases: resistant, water: resistant, solvents: resistant}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: 2.6
+    elongation_pct: null
+    resistivity_ohm_cm: null
+    min_feature_mm: null
+    min_wall_mm: null
+    infill_pct: null
+    notes: "stiffer than PP"
+    sources: [create]
+
+  - name: Conductive PLA
+    base: PLA
+    filler: carbon black
+    shrinkage: {typical: null, min: null, max: null, source: "needs calibration"}
+    hole_offset_mm: null
+    contour_offset_mm: 0.0
+    max_use_temp_c: []
+    chemical: {acids: unknown, bases: unknown, water: unknown, solvents: unknown}
+    uv_resistant: null
+    tensile_mpa: null
+    modulus_gpa: null
+    elongation_pct: null
+    # Proto-Pasta quotes 15-115 ohm*cm depending on print orientation;
+    # Stopforth's measured resistances work out to about 8-9 ohm*cm.
+    resistivity_ohm_cm: [8, 115]
+    min_feature_mm: {diameter: 1.0, length: 40.0, source: stopforth}
+    min_wall_mm: 0.8
+    infill_pct: {functional: [40, 100]}
+    notes: "more brittle than PLA; resistance depends on orientation and temperature"
+    sources: [protopasta, stopforth]

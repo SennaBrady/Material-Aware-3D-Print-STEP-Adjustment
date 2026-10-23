@@ -1,0 +1,22 @@
+# Same fixture in Nylon PA6, with a 50 mm ±0.1 critical width.
+# PA6's 0.7–3% shrinkage range can't hold that, so the advisor suggests alternatives.
+part: locating_fixture.step
+material: Nylon PA6
+build_up_axis: +Z
+hard_requirements:
+  max_temp_c: 80
+dimensions:
+  - name: Plate depth
+    type: contour
+    feature: BBOX_Y
+    nominal: 50.0
+    tol: 0.1
+  - name: Centre bore
+    type: hole
+    feature: H3
+    nominal: 12.0
+    tol: 0.1
+  - name: Height
+    type: z
+    nominal: 20.0
+    tol: 0.2
